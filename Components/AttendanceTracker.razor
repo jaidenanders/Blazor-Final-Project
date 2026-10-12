@@ -1,0 +1,76 @@
+@using EventEase.Services
+@using EventEase.Models
+@inject EventStateService StateService
+@implements IDisposable
+
+<div class="card shadow-sm border-0 mb-4 bg-light">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="card-title fw-bold mb-0">Event Capacity Tracker</h6>
+            <span class="badge @(IsSoldOut ? "bg-danger" : "bg-success")">
+                @(IsSoldOut ? "Sold Out" : "Open for Registration")
+            </span>
+        </div>
+
+        <div class="progress mb-2" style="height: 14px;">
+            <div class="progress-bar @ProgressBarClass" 
+                 role="progressbar" 
+                 style="width: @($"{PercentageFilled}%");" 
+                 aria-valuenow="@CurrentCount" 
+                 aria-valuemin="0" 
+                 aria-valuemax="@MaxCap">
+                @($"{PercentageFilled}%")
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between small text-muted">
+            <span><strong>@CurrentCount</strong> registered</span>
+            <span><strong>@(MaxCap - CurrentCount)</strong> spots left</span>
+            <span>Cap: <strong>@MaxCap</strong></span>
+        </div>
+
+        @if (RecentRegistrations.Any())
+        {
+            <div class="mt-3 pt-2 border-top">
+                <p class="small fw-semibold text-secondary mb-1">Recent Signups:</p>
+                <div class="d-flex flex-wrap gap-1">
+                    @foreach (var reg in RecentRegistrations.TakeLast(3))
+                    {
+                        <span class="badge bg-white text-dark border">
+                            <i class="bi bi-person-fill text-muted me-1"></i>@reg.FullName (@reg.TicketCount)
+                        </span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int EventId { get; set; }
+
+    private int CurrentCount => StateService.GetConfirmedAttendeeCount(EventId);
+    private int MaxCap => StateService.GetMaxCapacity(EventId);
+    private int PercentageFilled => MaxCap == 0 ? 0 : Math.Min(100, (int)Math.Round((double)CurrentCount / MaxCap * 100));
+    private bool IsSoldOut => CurrentCount >= MaxCap;
+
+    private string ProgressBarClass => PercentageFilled switch
+    {
+        >= 90 => "bg-danger",
+        >= 70 => "bg-warning",
+        _ => "bg-success"
+    };
+
+    private IReadOnlyList<RegistrationModel> RecentRegistrations => StateService.GetRegistrations(EventId);
+
+    protected override void OnInitialized()
+    {
+        StateService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        StateService.OnChange -= StateHasChanged;
+    }
+}

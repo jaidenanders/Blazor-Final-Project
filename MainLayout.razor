@@ -1,0 +1,26 @@
+@using EventEase.Services
+@inject EventStateService StateService
+@implements IDisposable
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3 mb-3">
+    <a class="navbar-brand fw-bold" href="/events">EventEase</a>
+    <div class="ms-auto d-flex align-items-center gap-3">
+        @if (StateService.CurrentSession.IsAuthenticated)
+        {
+            <span class="text-light small">
+                <i class="bi bi-person-circle me-1 text-info"></i>
+                Logged in as <strong>@StateService.CurrentSession.CurrentUserName</strong>
+            </span>
+            <button class="btn btn-outline-light btn-sm" @onclick="StateService.ClearSession">Sign Out</button>
+        }
+        else
+        {
+            <span class="badge bg-secondary">Guest Session (@StateService.CurrentSession.SessionId)</span>
+        }
+    </div>
+</nav>
+
+@code {
+    protected override void OnInitialized() => StateService.OnChange += StateHasChanged;
+    public void Dispose() => StateService.OnChange -= StateHasChanged;
+}

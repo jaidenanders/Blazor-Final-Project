@@ -1,0 +1,137 @@
+@page "/register/{Id:int}"
+@using EventEase.Models
+@using EventEase.Services
+@using EventEase.Components
+@inject EventStateService StateService
+@inject NavigationManager NavManager
+
+<PageTitle>Register for Event - EventEase</PageTitle>
+
+<div class="container py-4" style="max-width: 650px;">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/events">Events</a></li>
+            <li class="breadcrumb-item"><a href="@($"/events/{Id}")">Event #@Id</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Registration</li>
+        </ol>
+    </nav>
+
+    <!-- Embedded Attendance Tracker -->
+    <AttendanceTracker EventId="Id" />
+
+    <div class="card shadow-sm border-0 p-4">
+        <h3 class="h4 mb-3">Event Registration Form</h3>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-octagon-fill me-2"></i>@errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+            </div>
+        }
+
+        @if (isSuccess)
+        {
+            <div class="alert alert-success border-0 shadow-sm p-4 text-center">
+                <i class="bi bi-check-circle-fill fs-1 text-success mb-2 d-block"></i>
+                <h4 class="alert-heading">Registration Confirmed!</h4>
+                <p class="mb-1">Thank you, <strong>@model.FullName</strong>. A confirmation pass was generated.</p>
+                <p class="text-muted small">Pass ID: <code>@(Guid.NewGuid().ToString("N")[..12].ToUpper())</code></p>
+                <div class="d-flex justify-content-center gap-2 mt-4">
+                    <a href="/events" class="btn btn-outline-primary">Browse Other Events</a>
+                    <a href="@($"/events/{Id}")" class="btn btn-primary">Return to Event</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <EditForm Model="model" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Full Name</label>
+                    <InputText class="form-control" @bind-Value="model.FullName" placeholder="Jane Doe" />
+                    <ValidationMessage For="@(() => model.FullName)" class="text-danger small mt-1" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Email Address</label>
+                    <InputText class="form-control" @bind-Value="model.Email" placeholder="jane.doe@example.com" />
+                    <ValidationMessage For="@(() => model.Email)" class="text-danger small mt-1" />
+                    <div class="form-text">Your session and event confirmation will persist under this address.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Ticket Count (Max 5)</label>
+                    <InputNumber class="form-control" @bind-Value="model.TicketCount" min="1" max="5" />
+                    <ValidationMessage For="@(() => model.TicketCount)" class="text-danger small mt-1" />
+                </div>
+
+                <div class="mb-4 form-check">
+                    <InputCheckbox class="form-check-input" id="termsCheck" @bind-Value="model.AgreeToTerms" />
+                    <label class="form-check-label small" for="termsCheck">
+                        I agree to the EventEase Terms of Attendance and Privacy Guidelines.
+                    </label>
+                    <ValidationMessage For="@(() => model.AgreeToTerms)" class="text-danger small d-block" />
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="@($"/events/{Id}")" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary px-4" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Processing...</span>
+                        }
+                        else
+                        {
+                            <span>Confirm Registration</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private RegistrationModel model = new();
+    private bool isSuccess = false;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        model.EventId = Id;
+
+        // Auto-fill from active state session if already known
+        if (StateService.CurrentSession.IsAuthenticated)
+        {
+            model.FullName = StateService.CurrentSession.CurrentUserName ?? string.Empty;
+            model.Email = StateService.CurrentSession.CurrentUserEmail ?? string.Empty;
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = string.Empty;
+
+        await Task.Delay(300); // Simulate network I/O
+
+        bool success = StateService.TryRegister(model, out string reason);
+        if (success)
+        {
+            isSuccess = true;
+        }
+        else
+        {
+            errorMessage = reason;
+        }
+
+        isSubmitting = false;
+    }
+}
